@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>🎄 Merry Christmas – Interactive Tree</title>
+
+<style>
+html,body{
+  margin:0;height:100%;overflow:hidden;
+  background:
+    radial-gradient(circle at top,#2b3a8a,#0b1026 40%,#05070f 75%),
+    linear-gradient(180deg,#1b2a5a,#05070f);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+}
+canvas{display:block}
+video{display:none}
+
+/* UI */
+.ui{
+  position:fixed;top:16px;left:16px;
+  background:rgba(255,255,255,.08);
+  backdrop-filter:blur(10px);
+  padding:14px 18px;
+  border-radius:14px;
+  color:#fff;
+  box-shadow:0 20px 50px rgba(0,0,0,.45);
+  font-size:14px;
+}
+.ui b{color:#ffd700}
+
+/* AUDIO UNLOCK */
+.audioUnlock{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+  color:white;
+  cursor:pointer;
+}
+.audioUnlock div{
+  background:rgba(255,255,255,.1);
+  padding:22px 30px;
+  border-radius:18px;
+  font-size:18px;
+  backdrop-filter:blur(12px);
+  box-shadow:0 0 40px rgba(255,215,0,.6);
+}
+
+/* FOOTER TEXT */
+.footer{
+  position:fixed;bottom:28px;width:100%;
+  text-align:center;
+  pointer-events:none;
+}
+.footer h1{
+  margin:0;
+  font-size:34px;
+  letter-spacing:2px;
+  animation:glow 3s infinite alternate;
+}
+.footer p{
+  margin:6px 0 0;
+  opacity:.85;
+  animation:colorShift 4s infinite;
+}
+
+@keyframes glow{
+  0%{color:#fff;text-shadow:0 0 10px gold}
+  50%{color:#ffe680;text-shadow:0 0 25px gold}
+  100%{color:#fff;text-shadow:0 0 40px #fff}
+}
+@keyframes colorShift{
+  0%{color:#fff}
+  50%{color:#aaffff}
+  100%{color:#fff}
+}
+</style>
+</head>
+
+<body>
+<video id="cam" autoplay playsinline></video>
+
+<div class="audioUnlock" id="unlock">
+  <div>🎵 Click để bật nhạc Giáng Sinh</div>
+</div>
+
+<div class="ui">
+✋ <b>1 ngón</b> → Bung & tuyết phủ<br>
+✌️ <b>2 ngón</b> → Thu lại<br>
+🎥 Camera nhận diện tay
+</div>
+
+<div class="footer">
+  <h1>🎄 Merry Christmas 🎄</h1>
+  <p>Chúc bạn một mùa Giáng Sinh an lành & hạnh phúc</p>
+</div>
+
+<audio id="music" loop>
+  <source src="./a.mp3" type="audio/mpeg">
+</audio>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+/* ========== AUDIO UNLOCK ========== */
+const music=document.getElementById("music");
+document.getElementById("unlock").onclick=()=>{
+  music.play();
+  document.getElementById("unlock").style.display="none";
+};
+
+/* ========== MEDIAPIPE ========= */
+const MP_PATH="https://cdn.jsdelivr.net/npm/@mediapipe/hands/";
+const load=s=>new Promise(r=>{
+  const e=document.createElement("script");
+  e.src=s; e.onload=r; document.head.appendChild(e);
+});
+
+/* ========== THREE BASIC ========= */
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,100);
+camera.position.z=9;
+
+scene.add(new THREE.AmbientLight(0xffffff,.6));
+const dl=new THREE.DirectionalLight(0xffffff,1);
+dl.position.set(4,6,5);
+scene.add(dl);
+
+const group=new THREE.Group();
+scene.add(group);
+
+/* ========== TREE ========= */
+const COUNT=10000;
+const base=new Float32Array(COUNT*3);
+const spread=new Float32Array(COUNT*3);
+const vel=new Float32Array(COUNT*3);
+
+function treePoint(){
+  const h=5,r=2.4;
+  const y=Math.random()*h-h/2;
+  const k=1-(y+h/2)/h;
+  const a=Math.random()*Math.PI*2;
+  return [Math.cos(a)*r*k,y,Math.sin(a)*r*k];
+}
+function spreadPoint(){
+  const a=Math.random()*Math.PI*2;
+  const r=3+Math.random()*3;
+  return [Math.cos(a)*r,(Math.random()-.5)*4,Math.sin(a)*r];
+}
+
+const geom=new THREE.BufferGeometry();
+const pos=new Float32Array(COUNT*3);
+for(let i=0;i<COUNT;i++){
+  base.set(treePoint(),i*3);
+  spread.set(spreadPoint(),i*3);
+  vel.set([(Math.random()-.5)*.01,(Math.random()-.5)*.01,(Math.random()-.5)*.01],i*3);
+  pos.set(base.slice(i*3,i*3+3),i*3);
+}
+geom.setAttribute("position",new THREE.BufferAttribute(pos,3));
+
+const mat=new THREE.PointsMaterial({color:0x18ff6d,size:.03,transparent:true,opacity:.95});
+group.add(new THREE.Points(geom,mat));
+
+/* === TRUNK === */
+const trunkGeo=new THREE.BufferGeometry();
+const trunkPos=new Float32Array(700*3);
+for(let i=0;i<700;i++){
+  const a=Math.random()*Math.PI*2;
+  const r=Math.random()*.35;
+  trunkPos.set([Math.cos(a)*r,-3.4+Math.random()*.8,Math.sin(a)*r],i*3);
+}
+trunkGeo.setAttribute("position",new THREE.BufferAttribute(trunkPos,3));
+group.add(new THREE.Points(
+  trunkGeo,
+  new THREE.PointsMaterial({color:0x8b5a2b,size:.04})
+));
+
+/* === STAR === */
+const starGeo=new THREE.BufferGeometry();
+const starPos=new Float32Array(500*3);
+for(let i=0;i<500;i++){
+  const a=Math.random()*Math.PI*2;
+  const r=Math.random()*.25;
+  starPos.set([Math.cos(a)*r,3+Math.random()*.25,Math.sin(a)*r],i*3);
+}
+starGeo.setAttribute("position",new THREE.BufferAttribute(starPos,3));
+const starMat=new THREE.PointsMaterial({color:0xffd700,size:.07});
+group.add(new THREE.Points(starGeo,starMat));
+
+/* === SNOW === */
+const SNOW=3500;
+const snowGeo=new THREE.BufferGeometry();
+const snowPos=new Float32Array(SNOW*3);
+const snowVel=new Float32Array(SNOW);
+for(let i=0;i<SNOW;i++){
+  snowPos.set([(Math.random()-.5)*30,Math.random()*15,(Math.random()-.5)*30],i*3);
+  snowVel[i]=.01+Math.random()*.03;
+}
+snowGeo.setAttribute("position",new THREE.BufferAttribute(snowPos,3));
+const snow=new THREE.Points(snowGeo,new THREE.PointsMaterial({color:0xffffff,size:.025,opacity:.9,transparent:true}));
+scene.add(snow);
+
+/* === ANIMATION === */
+let target=1,smooth=1,morph=0,glow=0;
+const MIN=.75,MAX=3;
+
+function update(dt){
+  smooth+=(target-smooth)*(1-Math.pow(.001,dt));
+  group.scale.setScalar(smooth);
+
+  const m=THREE.MathUtils.clamp((smooth-1)/(MAX-1),0,1);
+  morph+=(m-morph)*.08;
+  glow+=(m-glow)*.12;
+
+  mat.size=.03+.025*glow;
+  starMat.size=.07+.12*glow;
+
+  const a=geom.attributes.position.array;
+  for(let i=0;i<COUNT;i++){
+    const j=i*3;
+    a[j]=base[j]+(spread[j]-base[j])*morph+vel[j];
+    a[j+1]=base[j+1]+(spread[j+1]-base[j+1])*morph+vel[j+1];
+    a[j+2]=base[j+2]+(spread[j]-base[j])*morph+vel[j+2];
+  }
+  geom.attributes.position.needsUpdate=true;
+
+  const sp=snowGeo.attributes.position.array;
+  for(let i=0;i<SNOW;i++){
+    sp[i*3+1]-=snowVel[i]*(1+glow*2);
+    if(sp[i*3+1]<-8) sp[i*3+1]=8;
+  }
+  snowGeo.attributes.position.needsUpdate=true;
+
+  group.rotation.y+=dt*.22;
+}
+
+/* === HAND TRACKING === */
+function countFingers(lm){
+  const t=[8,12,16,20],p=[6,10,14,18];
+  let c=0;
+  for(let i=0;i<4;i++) if(lm[t[i]].y<lm[p[i]].y) c++;
+  return c;
+}
+
+async function initHands(){
+  await load(MP_PATH+"hands.js");
+  await load("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js");
+
+  const hands=new Hands({locateFile:f=>MP_PATH+f});
+  hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.6,minTrackingConfidence:.6});
+
+  hands.onResults(r=>{
+    if(!r.multiHandLandmarks?.length) return;
+    const f=countFingers(r.multiHandLandmarks[0]);
+    if(f===1){ target=MAX; mat.color.set(0xeaffff); }
+    if(f===2){ target=MIN; mat.color.set(0x18ff6d); }
+  });
+
+  const cam=new Camera(document.getElementById("cam"),{
+    onFrame:()=>hands.send({image:cam.video}),
+    width:640,height:480
+  });
+  cam.start();
+}
+navigator.mediaDevices.getUserMedia({video:true}).then(initHands);
+
+/* === LOOP === */
+let last=performance.now();
+function loop(t){
+  const dt=(t-last)/1000; last=t;
+  update(dt);
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+loop(performance.now());
+
+addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
